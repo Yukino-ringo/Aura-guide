@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aura 使用说明 · 阅读与研究工作台</title>
+<meta name="description" content="Aura 是一个在本机运行的阅读与研究工作台：文献库、全文批注、Markdown 笔记、按期刊样式生成脚注与参考文献，支持 EXE 桌面版与网页版。">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Aura 使用说明 · 阅读与研究工作台">
+<meta property="og:description" content="把分散的 PDF、Word 文稿和书目集中成文献库：检索、阅读、批注、引用，一站完成。">
+<style>
+  :root{
+    --ink:#1a1a18; --ink-soft:#57534a; --ink-faint:#8a8578;
+    --paper:#f7f5ef; --card:#fffdf8; --line:#e3ded2; --accent:#1a1a18;
+    --sidebar:#161513; --sidebar-ink:#b8b2a4; --sidebar-active:#f7f5ef;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{font-family:"Noto Serif SC","Source Han Serif SC","SimSun",serif;background:var(--paper);color:var(--ink);line-height:1.9}
+
+  /* ===== 开场幕布 ===== */
+  #curtain{position:fixed;inset:0;background:#111110;z-index:100;display:flex;align-items:center;justify-content:center;
+           cursor:pointer;transition:opacity 1.2s ease,visibility 1.2s}
+  #curtain.lift{opacity:0;visibility:hidden;pointer-events:none}
+  #curtain .lines{max-width:780px;padding:0 42px;text-align:center}
+  #curtain .cline{color:#f7f5ef;font-size:clamp(18px,2.4vw,27px);line-height:2.1;margin:20px 0;
+                  opacity:0;transform:translateY(16px);transition:opacity 1.5s ease,transform 1.5s ease}
+  #curtain .cline.show{opacity:1;transform:none}
+  #curtain .cline.dim{opacity:.45}
+  #curtain .enter{margin-top:52px;color:#8a8578;font-size:13px;letter-spacing:5px;opacity:0;transition:opacity 1.2s}
+  #curtain .enter.show{opacity:1;animation:breath 2.6s ease-in-out infinite}
+  @keyframes breath{50%{opacity:.3}}
+
+  /* ===== 侧边导航 ===== */
+  nav{position:fixed;inset:0 auto 0 0;width:264px;background:var(--sidebar);color:var(--sidebar-ink);
+      padding:36px 0 24px;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;z-index:10;
+      transition:width .32s ease,box-shadow .32s ease}
+  nav .brand{padding:0 30px 24px;border-bottom:1px solid #2a2823;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:13px}
+  nav .brand .mark{width:42px;height:42px;flex:none;filter:invert(1);mix-blend-mode:screen}
+  nav .brand .mark img{width:100%;height:100%;object-fit:contain}
+  nav .brand .logo{font-size:29px;letter-spacing:3px;color:#f7f5ef;font-weight:700}
+  nav a{display:block;padding:9px 30px;color:var(--sidebar-ink);text-decoration:none;font-size:14.5px;transition:all .15s;white-space:nowrap}
+  nav a .n{display:inline-block;width:2.2em;color:#6d675a;font-size:12px}
+  nav a:hover{color:#fff;background:#201e1a}
+  nav a.active{color:var(--sidebar-active);background:#24221e;border-right:3px solid #f7f5ef}
+  nav .foot{margin-top:auto;padding:18px 30px 0;font-size:12px;color:#6d675a;font-style:italic;white-space:nowrap}
+  nav .progress{position:absolute;right:0;top:0;bottom:0;width:3px;pointer-events:none}
+  nav .progress i{display:block;width:100%;height:100%;background:#f7f5ef;opacity:.55;transform-origin:top;transform:scaleY(0)}
+  /* 收起成窄条：看正文时让位，悬停展开 */
+  body.mini nav{width:76px}
+  body.mini nav .brand{padding:0 0 20px;gap:0}
+  body.mini nav .brand .logo{display:none}
+  body.mini nav a{padding:10px 0;text-align:center}
+  body.mini nav a .t{display:none}
+  body.mini nav a .n{width:auto;font-size:13px}
+  body.mini nav a.active{border-right:none;background:#24221e}
+  body.mini nav .foot{display:none}
+  body.mini nav:hover{width:264px;box-shadow:10px 0 34px rgba(0,0,0,.4)}
+  body.mini nav:hover .brand{padding:0 30px 24px;gap:13px}
+  body.mini nav:hover .brand .logo{display:block}
+  body.mini nav:hover a{padding:9px 30px;text-align:left}
+  body.mini nav:hover a .t{display:inline}
+  body.mini nav:hover a .n{width:2.2em;font-size:12px}
+  body.mini nav:hover a.active{border-right:3px solid #f7f5ef}
+  body.mini nav:hover .foot{display:block}
+
+  /* ===== 正文 ===== */
+  main{margin-left:264px;max-width:1020px;padding:0 56px 120px;transition:margin-left .32s ease}
+  body.mini main{margin-left:76px}
+  header.hero{padding:88px 0 40px;border-bottom:1px solid var(--line);margin-bottom:20px}
+  header.hero .kicker{font-size:13px;letter-spacing:6px;color:var(--ink-faint);text-transform:uppercase}
+  header.hero h1{font-size:52px;font-weight:700;letter-spacing:2px;margin:14px 0 10px}
+  header.hero .meta{color:var(--ink-soft);font-size:15px}
+  section{display:none;padding:42px 0 26px}
+  section.active{display:block;animation:fadein .35s ease}
+  @keyframes fadein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  h2{font-size:30px;font-weight:700;letter-spacing:1px;margin-bottom:6px;display:flex;align-items:baseline;gap:14px}
+  h2 .num{font-size:14px;color:var(--ink-faint);letter-spacing:2px;font-weight:400}
+  h3{font-size:19px;margin:26px 0 4px;font-weight:700}
+  p{margin:12px 0;color:var(--ink-soft);font-size:15.5px;text-align:justify}
+  ol.steps,ul.dots{margin:12px 0 12px 1.4em;color:var(--ink-soft);font-size:15.5px}
+  ol.steps li,ul.dots li{margin:6px 0}
+  b,strong{color:var(--ink)}
+  figure{margin:26px 0 8px;background:var(--card);border:1px solid var(--line);padding:14px}
+  figure img{width:100%;display:block;border:1px solid var(--line);cursor:zoom-in}
+  figcaption{font-size:13px;color:var(--ink-faint);margin-top:10px;text-align:center}
+  .tip{border-left:3px solid var(--ink);background:var(--card);padding:12px 18px;margin:16px 0;font-size:14.5px;color:var(--ink-soft)}
+
+  /* 思想者裁切肖像 */
+  .thinker-row{display:flex;flex-wrap:wrap;gap:26px;justify-content:center;margin:34px 0 8px}
+  .thinker{width:148px;text-align:center;transition:transform .25s ease}
+  .thinker img{width:100%;display:block;box-shadow:0 7px 20px rgba(26,26,24,.2);transform:rotate(var(--r,0deg));transition:transform .25s ease}
+  .thinker:hover img{transform:rotate(0deg) translateY(-6px)}
+  .thinker .tname{margin-top:13px;font-size:14px;font-weight:700;color:var(--ink)}
+  .thinker .tnote{font-size:12px;color:var(--ink-faint);margin-top:2px}
+  .thinker-cap{text-align:center;font-size:13px;color:var(--ink-faint);margin-top:18px}
+
+  /* 社区连接 */
+  .brand-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:20px 0 8px}
+  .brand-card{background:var(--card);border:1px solid var(--line);padding:18px 16px 14px;text-align:center;transition:box-shadow .15s}
+  .brand-card:hover{box-shadow:0 4px 14px rgba(26,26,24,.08)}
+  .brand-card .icon{height:40px;display:flex;align-items:center;justify-content:center;margin-bottom:10px}
+  .brand-card .icon img{max-height:40px;max-width:120px;object-fit:contain}
+  .brand-card .bname{font-weight:700;font-size:15px;color:var(--ink)}
+  .brand-card .bdesc{font-size:12.5px;color:var(--ink-faint);margin-top:4px;line-height:1.6}
+
+  /* 下载区 */
+  .dl-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin:22px 0 8px}
+  .dl-card{display:block;background:var(--sidebar);color:#f7f5ef;text-decoration:none;padding:24px 22px;border:1px solid #2a2823;transition:transform .15s,box-shadow .15s}
+  .dl-card:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(26,26,24,.25)}
+  .dl-card .dtype{font-size:12px;letter-spacing:3px;color:#8a8578}
+  .dl-card .dname{font-size:20px;font-weight:700;margin:8px 0 4px}
+  .dl-card .dsize{font-size:13px;color:#b8b2a4}
+  .dl-card .dbtn{display:inline-block;margin-top:14px;padding:7px 18px;border:1px solid #f7f5ef;font-size:13.5px;letter-spacing:1px}
+
+  table{width:100%;border-collapse:collapse;margin:18px 0;font-size:14.5px;background:var(--card)}
+  th,td{border:1px solid var(--line);padding:9px 14px;text-align:left;vertical-align:top}
+  th{background:#efece3;font-weight:700;color:var(--ink)}
+  td{color:var(--ink-soft)}
+
+  /* 问题与反馈 */
+  .fb-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin:22px 0 8px}
+  .fb-card{background:var(--card);border:1px solid var(--line);padding:24px 22px}
+  .fb-card h4{font-size:17px;color:var(--ink);margin-bottom:8px}
+  .fb-card p{font-size:14px;margin:6px 0}
+  .fb-btn{display:inline-block;margin-top:14px;padding:9px 22px;background:var(--ink);color:#f7f5ef;text-decoration:none;font-size:14px;letter-spacing:1px;border:1px solid var(--ink);cursor:pointer;font-family:inherit}
+  .fb-btn.off{background:transparent;color:var(--ink-faint);border-color:var(--line);cursor:default}
+  .like-btn{display:inline-flex;align-items:center;gap:10px;margin-top:14px;padding:10px 24px;background:var(--card);border:1px solid var(--ink);color:var(--ink);font-size:15px;cursor:pointer;font-family:inherit;transition:all .15s}
+  .like-btn:hover{background:var(--ink);color:#f7f5ef}
+  .like-btn.liked{background:var(--ink);color:#f7f5ef}
+  .like-btn .heart{font-size:17px}
+  .like-btn.liked .heart{animation:pop .4s ease}
+  @keyframes pop{40%{transform:scale(1.45)}}
+  .like-note{font-size:12.5px;color:var(--ink-faint);margin-top:10px}
+
+  /* 致谢 */
+  .oss-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:20px 0 8px}
+  .oss-card{display:block;background:var(--card);border:1px solid var(--line);padding:15px 16px;text-decoration:none;transition:box-shadow .15s}
+  .oss-card:hover{box-shadow:0 4px 14px rgba(26,26,24,.1)}
+  .oss-card .oname{font-weight:700;font-size:14.5px;color:var(--ink)}
+  .oss-card .odesc{font-size:12.5px;color:var(--ink-faint);margin-top:3px;line-height:1.6}
+  .dev-card{margin:20px 0 8px;background:var(--sidebar);color:#f7f5ef;padding:28px 26px;border:1px solid #2a2823}
+  .dev-card .dname{font-size:22px;font-weight:700;letter-spacing:1px}
+  .dev-card .drole{font-size:12px;letter-spacing:3px;color:#8a8578;margin:6px 0 12px}
+  .dev-card p{color:#b8b2a4;font-size:14px;margin:6px 0}
+
+  /* 页脚统计 */
+  footer.site{margin-top:60px;padding-top:22px;border-top:1px solid var(--line);font-size:13px;color:var(--ink-faint);display:flex;flex-wrap:wrap;gap:8px 26px}
+
+  #lightbox{position:fixed;inset:0;background:rgba(15,14,12,.92);display:none;align-items:center;justify-content:center;z-index:99;cursor:zoom-out}
+  #lightbox img{max-width:94vw;max-height:94vh}
+  #lightbox.on{display:flex}
+  #top{position:fixed;right:26px;bottom:26px;width:44px;height:44px;border:1px solid var(--line);background:var(--card);
+       color:var(--ink);font-size:18px;cursor:pointer;display:none;z-index:20}
+  #top.on{display:block}
+  @media (max-width:900px){
+    nav{position:static;width:100%;flex-direction:column}
+    body.mini nav{width:100%}
+    body.mini nav .brand .logo{display:block}
+    body.mini nav a{padding:9px 30px;text-align:left}
+    body.mini nav a .t{display:inline}
+    body.mini nav a .n{width:2.2em;font-size:12px}
+    body.mini nav .foot{display:block}
+    main,body.mini main{margin-left:0;padding:0 22px 80px}
+    header.hero h1{font-size:36px}
+    .thinker{width:126px}
+  }
+</style>
+</head>
+<body>
+
+<div id="curtain" aria-hidden="true">
+  <div class="lines">
+    <p class="cline" id="cl0">也许，还需要一间自己的房间</p>
+    <p class="cline" id="cl1">或许只是一个工作台</p>
+    <p class="cline" id="cl2">整理，安装，透过AI时代——</p>
+    <p class="cline" id="cl3">重新发现作品的“光晕（Aura）”</p>
+    <div class="enter" id="curtainEnter">点 击 进 入</div>
+  </div>
+</div>
+
+<nav id="nav">
+  <div class="brand"><div class="mark"><img src="assets/aura-logo.png" alt="Aura 标志"></div><div class="logo">Aura</div></div>
+  <div id="navlinks"></div>
+  <div class="foot">Keep reading, thinking non-stop.</div>
+</nav>
+<main>
+  <header class="hero">
+    <div class="kicker">阅读与研究工作台</div>
+    <h1>Aura 使用说明</h1>
+    <div class="meta">Aura v1.1 · 2026 年 9 月 · 适用于 EXE 桌面版与网页版</div>
+  </header>
+  <div id="content"></div>
+  <footer class="site">
+    <span>Aura Guide · 由 Yuki-no-Ringo 制作</span>
+    <span id="viewStat">本页已被阅读 <b id="viewCount">—</b> 次</span>
+  </footer>
+</main>
+<div id="lightbox"><img alt="放大截图"></div>
+<button id="top" title="回到顶部">↑</button>
+<script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+<script>
+/* ============================================================
+   说明书文案（全部集中在这里，指哪段改哪段）
+   区块类型：
+   {p:"段落"} {h3:"小节"} {tip:"提示"} {steps:[..]} {dots:[..]}
+   {shot:"assets/xx.png", cap:"图注"}
+   {table:{head:[..], rows:[[..]]}}
+   {brands:[{icon,name,desc}]}          社区图标卡
+   {downloads:[{type,name,size,href}]}  下载卡
+   {thinkers:[{img,name,note}]}         思想者裁切肖像
+   {oss:[{name,url,desc}]}              开源致谢卡
+   {feedback:true}                      问题与反馈卡（问卷 + 点赞）
+   {developer:true}                     开发者卡
+   ============================================================ */
+const SURVEY_URL = "https://v.wjx.cn/vm/rWcg5pE.aspx";   // 问卷做好后把链接填在这里，例如 "https://wj.qq.com/s2/xxxxx"
+const LIKE_API = "https://api.counterapi.dev/v1/aura-guide-yuki-no-ringo/cheers";
+
+const CONTENT = [
+{ id:"download", num:"↓", title:"下载 Aura v1.1", blocks:[
+  {p:"Aura支持exe与网页两种形态，功能相同，下载可任选其一。"},
+  {downloads:[
+    {type:"EXE 桌面版", name:"Aura-v1.1.exe", size:"约 415 MB · 百度网盘 · 提取码 x35v", href:"https://pan.baidu.com/s/1jS6RZNBstwKnFc1rvcmQQg?pwd=x35v"},
+    {type:"网页版压缩包", name:"Aura-v1.1-网页版.zip", size:"约 121 MB · 百度网盘 · 提取码 1rxe", href:"https://pan.baidu.com/s/1MkLe1Tnc_rTfBhSn7KxkBg?pwd=1rxe"}
+  ]}
+]},
+{ id:"about", num:"01", title:"Aura 是什么", blocks:[
+  {p:"Aura 是一个在本机运行的阅读与研究工作台：把分散的 PDF、Word 文稿和书目集中成文献库，支持在线检索书目、全文阅读批注、Markdown 笔记、按期刊样式生成脚注与参考文献，并把引用直接写进你的 DOCX 文稿。"},
+  {p:"Aura 有两种形态，功能一致：EXE 桌面版双击即用；网页版在后台运行一个仅本机可访问的本地服务，用浏览器打开工作台。除在线检索书目和封面外，全部功能离线可用；你的文献、笔记和计时记录都保存在自己的电脑上。"},
+  {dots:[
+    "随附独立运行环境，不需要安装任何依赖。",
+    "适用 Windows 10 / 11（64 位）。",
+    "打开即是空白资料库，不含任何示例数据，从零开始建立自己的文献库。"
+  ]},
+  {h3:"连接的社区与书库"},
+  {p:"Aura 与以下开放社区连接，用来检索书目、核对版本、抓取封面与导入引用样式；连接只读取公开书目信息，你的文献内容不会发送给任何一方。"},
+  {brands:[
+    {icon:"assets/icons/douban.ico", name:"豆瓣读书", desc:"书目检索 · 链接导入 · 封面"},
+    {icon:"assets/icons/openlibrary.svg", name:"Open Library", desc:"书目检索 · 版本核对 · 封面"},
+    {icon:"assets/icons/zotero.png", name:"Zotero", desc:"RIS 题录导入，兼容 JSTOR 等数据库导出"},
+    {icon:"assets/icons/csl.png", name:"CSL 样式库", desc:"Zotero 官方样式目录与中文社区样式库"}
+  ]}
+]},
+{ id:"install", num:"02", title:"安装与启动", blocks:[
+  {h3:"网页版"},
+  {steps:[
+    "将 Aura-v1.1-网页版.zip 完整解压到一个普通本地目录（例如“文档”下的某个文件夹）。不要直接在压缩包内运行，也不要放在 C 盘根目录、Program Files 等需要管理员权限的位置。",
+    "双击“启动网页.cmd”。首次启动会展开随附环境，需要等待片刻；随后浏览器自动打开 Aura 工作台。",
+    "Aura 会自动选择一个空闲的本地端口并记住它，之后每次启动都是同一个网址，可以把标签页加入收藏夹。",
+    "关闭浏览器标签页不会停止后台服务。要完全退出，双击“停止网页.cmd”。"
+  ]},
+  {h3:"EXE 桌面版"},
+  {p:"双击 Aura-v1.1.exe 即可启动，无需安装。首次启动系统可能提示未知发布者，属于正常现象（软件未做商业代码签名）。"},
+  {h3:"资料保存在哪里"},
+  {p:"全部资料（文献库、全文文件、笔记、文稿副本）保存在程序目录下的 storage 文件夹。日后升级 Aura 时，用新包解压到新目录后，把旧目录的 storage 整体复制过来即可。切勿用新版直接覆盖旧目录。"}
+]},
+{ id:"tour", num:"03", title:"界面导览", blocks:[
+  {p:"页面左侧是模块栏，Aura 共有十个模块；顶部是当前文献与导入口。文献库首页上方有一条“使用日历与专注”摘要，默认折叠，点击可展开日历和计时器。"},
+  {shot:"assets/01-library-covers.jpg", cap:"Aura 工作台首页：左侧模块栏 + 文献库封面视图"},
+  {table:{head:["模块","用途"], rows:[
+    ["文献库","全部文献的家：封面 / 清单两种视图、分类整理、搜索、项目管理、上传本地全文。"],
+    ["导入文献","导入 PDF / Word 全文，或批量导入 RIS 题录。"],
+    ["搜索书目","联网检索豆瓣与 OpenLibrary 书目，核对版本后加入文献库。"],
+    ["阅读与批注","打开已上传全文的文献，逐页阅读并做图文批注。"],
+    ["文献笔记","按文献整理 Markdown 笔记，支持上传、预览与导出。"],
+    ["引用与参考文献","建立写作项目，把文献排成引用序列，按样式生成脚注和参考文献表。"],
+    ["文稿引用助手","把引用写进 DOCX 文稿：本地 DOCX 模式（推荐）或实时连接 WPS / Word。"],
+    ["样式管理","管理引用样式（CSL），可从在线目录导入数千种期刊样式。"],
+    ["回收站","删除的文献先进入回收站，可恢复或彻底删除。"],
+    ["备份与设置","导出 / 恢复完整备份，查看数据说明。"]
+  ]}}
+]},
+{ id:"import", num:"04", title:"导入文献的四种方式", blocks:[
+  {h3:"4.1 导入 PDF / Word 全文"},
+  {p:"在“导入文献”点击“选择 PDF / Word”，可一次选择多个文件。Aura 会在本机读取首页书目信息（题名、作者、期刊、年份等）并建立文献卡片，全文同时存入本机，之后即可到阅读区批注。Word 文稿会先在本机转换为阅读副本（需要本机安装 Microsoft Word；纯 PDF 流程不需要）。"},
+  {p:"同一份文件重复导入会被自动识别，不会产生重复卡片。导入后请核对自动提取的书目字段，缺失的可以稍后补填。"},
+  {shot:"assets/05-import.jpg", cap:"导入文献页：本地文件、RIS 题录、链接导入三个入口"},
+  {h3:"4.2 批量导入 RIS 题录"},
+  {p:"如果你已经在用 Zotero、JSTOR 或其他数据库，可以导出 RIS 文件，在“导入文献”页面的“导入题录 · RIS”处批量加入。题录只包含书目信息，不包含全文；需要阅读全文时再单独上传 PDF。"},
+  {h3:"4.3 豆瓣链接导入专著"},
+  {p:"在“导入文献”页面的“链接导入”中粘贴豆瓣图书链接，读取后核对作者、出版社、年份与版次，保存即到文献库。豆瓣链接只记录书目来源，不会下载整本书。网络不佳时可以改用“粘贴书目信息”手动录入。"},
+  {h3:"4.4 搜索书目"},
+  {p:"在“搜索书目”按题名、作者或 ISBN 联网检索，结果可勾选后加入文献库；同一本书有多个出版版本时，可以先展开版本列表，挑选你实际使用的那一版。已加入的条目会自动从结果中移除。"},
+  {shot:"assets/06-search.jpg", cap:"搜索书目页：按题名、作者或 ISBN 联网检索"}
+]},
+{ id:"library", num:"05", title:"文献库：整理与项目", blocks:[
+  {h3:"5.1 封面与清单视图"},
+  {p:"文献库默认按封面视图展示：专著以书籍封面呈现，抓不到封面的显示白底书名卡（书名与作者）。把鼠标移到卡片上（或用键盘 Tab 进入卡片），会出现“选择”标记与操作入口。点击“清单”可切换到紧凑的列表视图，显示作者、年份与状态，适合批量处理。"},
+  {shot:"assets/02-cover-hover.jpg", cap:"封面视图：鼠标悬停卡片，出现选择与操作入口"},
+  {shot:"assets/04-library-list.jpg", cap:"清单视图：作者、年份、状态一目了然，适合批量处理"},
+  {h3:"5.2 分类与搜索"},
+  {p:"“专著”与“论文”是固定分类；其余分类由你自己设计：在页签栏点击“＋ 自定义”，输入名称（1–12 字，不与现有分类重复）即可新建分类页签，随后在文献详情或卡片编辑中把文献归入该分类。没有文献的自建分类可点页签上的“×”删除；旧资料中的“古籍”“报刊”等分类会自动保留为页签。搜索框支持按题名、作者或关键词过滤，与分类页签可以叠加使用。"},
+  {h3:"5.3 写作项目"},
+  {p:"“项目”是按写作任务组织的文献篮子：在卡片上勾选“选择”，在工具条选择目标项目后点“加入项目”。同一份文献可以属于多个项目。到“引用与参考文献”模块，可以为每个项目维护独立的引用序列和引用样式。"},
+  {h3:"5.4 本地全文"},
+  {p:"书目与全文分开保存。通过 RIS 或豆瓣加入的文献最初只有书目；在文献详情处的“本地全文”上传 PDF / Word 后，这份文献才会出现在阅读区。解除全文关联不会删除书目和笔记。"}
+]},
+{ id:"reader", num:"06", title:"阅读与批注", blocks:[
+  {p:"“阅读与批注”只显示已上传全文的文献。左上角选择要读的文献后逐页阅读；在页面上拖选文字或框选区域即可建立批注锚点，写下想法后会附着在对应位置，再次打开时自动定位。"},
+  {p:"阅读时的临时页面状态会保存在本机；文献卡片上的“笔记”入口可以随时查看这份文献的批注与笔记份数。"},
+  {shot:"assets/07-reader.jpg", cap:"阅读与批注页：逐页阅读全文，右侧记录当前页批注"}
+]},
+{ id:"notes", num:"07", title:"文献笔记", blocks:[
+  {p:"“文献笔记”按文献归档 Markdown 笔记：可以直接上传 .md 文件，Aura 会安全地渲染预览（不会执行笔记里的脚本）。笔记可以删除进入笔记回收区，也可以恢复；删除文献不影响已保存的笔记。"},
+  {shot:"assets/08-notes.jpg", cap:"文献笔记页：按文献归档笔记文件"}
+]},
+{ id:"citations", num:"08", title:"引用与参考文献", blocks:[
+  {steps:[
+    "在“引用与参考文献”选择或新建一个写作项目。",
+    "从项目资料中“选为引用文献”，或在文献库勾选后加入项目。",
+    "为每条引用填写正文印刷页码（可留空），用上下调整排定引用顺序。",
+    "在样式下拉框选择期刊样式，右侧实时预览脚注与参考文献表；确认后一键复制或导出。"
+  ]},
+  {p:"每个项目记住自己的引用序列和样式，切换项目互不影响。样式渲染在本机完成，不需要联网。"},
+  {shot:"assets/09-citations.jpg", cap:"引用与参考文献页：添加引用、实时预览、引用序列"}
+]},
+{ id:"word", num:"09", title:"文稿引用助手", blocks:[
+  {p:"文稿引用助手把 Aura 里的引用直接写进你的 DOCX 文稿，提供两种方式，页面顶部“使用方式”可随时切换。"},
+  {h3:"9.1 本地 DOCX 模式（推荐）"},
+  {steps:[
+    "点击“打开本地文稿文件夹”，把已保存的 DOCX 放进文件夹（或点“选择 DOCX 文稿”由 Aura 复制进去），然后“刷新文件夹”。",
+    "选择文稿并“读取 / 重新读取文稿”。Aura 会列出全部正文段落。",
+    "选择要插入脚注的段落，再选择引用文献、填写页码、选择脚注样式，点击“添加脚注并生成副本”。",
+    "每次写入都会生成一个新的 DOCX 副本，保存在文稿文件夹的“已处理”子目录，原稿不会被修改；也可以点“下载当前副本”另存。"
+  ]},
+  {p:"已生成的引用可以选中后更新页码、样式或删除，同样会生成新副本。如果你在其他软件里修改了文稿，请先保存，再回 Aura 重新读取，助手会检测文稿变化，避免把脚注写错位置。仅支持未加密、未受保护的普通 DOCX。"},
+  {shot:"assets/10-word.jpg", cap:"文稿引用助手：本地 DOCX 模式"},
+  {h3:"9.2 实时连接 WPS / Word"},
+  {p:"切换到“实时光标连接 WPS / Word”后：先在 WPS 或 Word 中打开并保存 DOCX，把光标放在正文（或已有脚注、尾注）中，回到 Aura 点击“连接并记录位置”，之后即可把引用插入到光标处或更新已插入的脚注。切换窗口不会丢失已记录的位置。此模式依赖办公软件的运行状态，日常写作建议优先使用本地 DOCX 模式。"}
+]},
+{ id:"styles", num:"10", title:"样式管理", blocks:[
+  {p:"Aura 内置常用中文与英文引用样式。在“样式管理”可以按刊名检索在线样式目录（数千种 CSL 样式），一键导入后立即可用；也可以取消默认样式或移除不再需要的样式。在线目录需要联网，已导入的样式离线可用。"},
+  {shot:"assets/11-styles.jpg", cap:"样式管理页：内置样式与在线样式目录"}
+]},
+{ id:"focus", num:"11", title:"使用日历与专注计时", blocks:[
+  {p:"文献库首页顶部的摘要条显示“相伴 N 天 · 累计专注 N 分钟”，点击展开完整面板：左侧是使用日历，右侧是专注计时器。日历按每日专注时长着色：不足一小时最浅，一至三小时次之，三小时以上最深。选择分类（阅读 / 写作 / 资料整理 / 其他）后点“开始专注”，切到后台会自动暂停；再次点击摘要条可收起，收起状态会被记住。"},
+  {p:"专注记录保存在当前浏览器中，可在面板底部“导出专注记录”备份，或“恢复专注记录”还原。"},
+  {shot:"assets/03-dashboard.jpg", cap:"展开的使用日历与专注计时面板"}
+]},
+{ id:"backup", num:"12", title:"备份、回收站与迁移", blocks:[
+  {h3:"12.1 备份与恢复"},
+  {p:"在“备份与设置”导出完整工作区备份（文献、项目、引用序列）。恢复时选择备份文件即可；专注记录有独立的导出 / 恢复入口。建议定期导出备份到网盘或移动硬盘。"},
+  {shot:"assets/13-settings.jpg", cap:"备份与设置页"},
+  {h3:"12.2 回收站"},
+  {p:"删除的文献先进入回收站，书目、全文与笔记都保留，可随时恢复。确认不再需要时，在回收站彻底删除；彻底删除不可撤销，操作前会有明确提示。"},
+  {shot:"assets/12-trash.jpg", cap:"回收站：误删的文献可以在这里找回"},
+  {h3:"12.3 迁移到另一台电脑"},
+  {steps:[
+    "在旧电脑导出完整备份和专注记录。",
+    "在新电脑安装并启动 Aura，把旧目录中的 storage 文件夹整体复制到新目录（替换空白的 storage）。",
+    "启动后在“备份与设置”恢复工作区备份，再恢复专注记录。"
+  ]}
+]},
+{ id:"faq", num:"13", title:"常见问题", blocks:[
+  {p:"封面显示为白底书名卡：封面图片来自豆瓣 / OpenLibrary 在线接口，离线或接口暂时不可用时会自动改用白底书名卡，联网后重新进入文献库即可恢复。"},
+  {p:"启动后浏览器没有打开：查看命令行窗口提示的本地网址（形如 http://127.0.0.1:4317），手动复制到浏览器；确认没有安全软件拦截本地服务。"},
+  {p:"提示端口被占用：退出占用该端口的程序后重试；为保留浏览器记录，Aura 不会自动更换已有端口。"},
+  {p:"Word 文稿无法导入为阅读副本：DOC/DOCX 转 PDF 阅读副本依赖本机安装的 Microsoft Word；没有安装 Word 时，PDF 文献不受影响，文稿脚注请使用“本地 DOCX 模式”。"},
+  {p:"系统提示未知发布者：本软件未做商业代码签名，属于正常现象，无需关闭安全软件。"}
+]},
+{ id:"feedback", num:"14", title:"问题与反馈", blocks:[
+  {p:"Aura 还在内测阶段。你遇到的每个问题、每个“要是能……就好了”，都会直接决定下一个版本长什么样。"},
+  {feedback:true}
+]},
+{ id:"privacy", num:"15", title:"数据位置与隐私", blocks:[
+  {dots:[
+    "文献库与全文：程序目录 storage 文件夹。",
+    "文稿助手文件夹：storage 下的 manuscripts 子目录。",
+    "界面设置、专注记录与阅读进度：保存在当前浏览器（或桌面版窗口）的本地存储中。",
+    "除在线检索书目、封面与样式目录外，Aura 不向任何服务器发送你的文献内容；所有引用渲染、全文提取都在本机完成。"
+  ]},
+  {tip:"组件来源与文件校验见随包 BUILD-MANIFEST.json；WebView2、Node、Python 与字体均为官方发行组件。"}
+]},
+{ id:"thanks", num:"16", title:"致谢", blocks:[
+  {p:"Aura 站在许多开放成果的肩膀上。以下项目让这个小工具成为可能，在此一并致谢。"},
+  {oss:[
+    {name:"PDF.js", url:"https://github.com/mozilla/pdf.js", desc:"全文阅读与页面渲染 · Apache-2.0"},
+    {name:"citeproc-js", url:"https://github.com/Juris-M/citeproc-js", desc:"CSL 引用样式渲染引擎"},
+    {name:"CSL 样式库", url:"https://github.com/citation-style-language/styles", desc:"数千种期刊引用样式"},
+    {name:"Node.js", url:"https://nodejs.org", desc:"本地服务运行时 · MIT"},
+    {name:"Python", url:"https://www.python.org", desc:"文稿处理与元数据提取 · PSF"},
+    {name:"python-docx", url:"https://github.com/python-openxml/python-docx", desc:"DOCX 文稿读写 · MIT"},
+    {name:"pypdf", url:"https://github.com/py-pdf/pypdf", desc:"PDF 元数据解析 · BSD"},
+    {name:"Pillow", url:"https://python-pillow.org", desc:"图像处理 · HPND"},
+    {name:"lxml", url:"https://lxml.de", desc:"XML 文档解析 · BSD"},
+    {name:"ReportLab", url:"https://www.reportlab.com/opensource/", desc:"PDF 生成 · BSD"},
+    {name:"Microsoft WebView2", url:"https://developer.microsoft.com/zh-cn/microsoft-edge/webview2/", desc:"桌面版内嵌显示组件"}
+  ]},
+  {p:"也谢谢每一位愿意试用的读者——你们的每一次打开，都是这个小工具继续生长的理由。"},
+  {h3:"开发者"},
+  {developer:true}
+]}
+];
+</script>
+
+<script>
+/* ============ 渲染逻辑 ============ */
+const esc=s=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;");
+const content=document.getElementById("content"), navlinks=document.getElementById("navlinks");
+const ROTS=["-2deg","1.6deg","-1.2deg","2deg","-1.6deg","1.2deg"];
+CONTENT.forEach(sec=>{
+  navlinks.insertAdjacentHTML("beforeend",`<a href="#${sec.id}"><span class="n">${sec.num}</span><span class="t">${esc(sec.title)}</span></a>`);
+  let html=`<section id="${sec.id}"><h2><span class="num">${sec.num}</span>${esc(sec.title)}</h2>`;
+  for(const b of sec.blocks){
+    if(b.p) html+=`<p>${esc(b.p)}</p>`;
+    if(b.h3) html+=`<h3>${esc(b.h3)}</h3>`;
+    if(b.tip) html+=`<div class="tip">${esc(b.tip)}</div>`;
+    if(b.steps) html+=`<ol class="steps">${b.steps.map(s=>`<li>${esc(s)}</li>`).join("")}</ol>`;
+    if(b.dots) html+=`<ul class="dots">${b.dots.map(s=>`<li>${esc(s)}</li>`).join("")}</ul>`;
+    if(b.shot) html+=`<figure><img src="${b.shot}" alt="${esc(b.cap||"")}" loading="lazy"><figcaption>${esc(b.cap||"")}</figcaption></figure>`;
+    if(b.table) html+=`<table><tr>${b.table.head.map(h=>`<th>${esc(h)}</th>`).join("")}</tr>${b.table.rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join("")}</tr>`).join("")}</table>`;
+    if(b.brands) html+=`<div class="brand-row">${b.brands.map(x=>`<div class="brand-card"><div class="icon"><img src="${x.icon}" alt="${esc(x.name)}"></div><div class="bname">${esc(x.name)}</div><div class="bdesc">${esc(x.desc)}</div></div>`).join("")}</div>`;
+    if(b.downloads) html+=`<div class="dl-row">${b.downloads.map(x=>`<a class="dl-card" href="${x.href}" target="_blank" rel="noopener"><span class="dtype">${esc(x.type)}</span><div class="dname">${esc(x.name)}</div><div class="dsize">${esc(x.size)}</div><span class="dbtn">下载</span></a>`).join("")}</div>`;
+    if(b.thinkers) html+=`<div class="thinker-row">${b.thinkers.map((t,i)=>`<div class="thinker"><img src="${t.img}" alt="${esc(t.name)}" style="--r:${ROTS[i%ROTS.length]}" loading="lazy"><div class="tname">${esc(t.name)}</div><div class="tnote">${esc(t.note)}</div></div>`).join("")}</div>`;
+    if(b.oss) html+=`<div class="oss-row">${b.oss.map(o=>`<a class="oss-card" href="${o.url}" target="_blank" rel="noopener"><div class="oname">${esc(o.name)}</div><div class="odesc">${esc(o.desc)}</div></a>`).join("")}</div>`;
+    if(b.feedback) html+=`<div class="fb-row">
+      <div class="fb-card"><h4>内测问卷</h4>
+        <p>几分钟就好，聊聊你的使用感受和想要的功能。问卷结果会直接寄到作者手里。</p>
+        ${SURVEY_URL?`<a class="fb-btn" href="${SURVEY_URL}" target="_blank" rel="noopener">填写问卷</a>`:`<span class="fb-btn off">问卷筹备中，即将上线</span>`}
+      </div>
+      <div class="fb-card"><h4>给作者一点鼓励</h4>
+        <p>如果 Aura 帮到了你，点一下这里，让作者知道又有一位读者来过。</p>
+        <button class="like-btn" id="likeBtn" type="button"><span class="heart">♥</span><span id="likeText">鼓励一下</span>·<span id="likeCount">—</span></button>
+        <div class="like-note" id="likeNote"></div>
+      </div>
+    </div>`;
+    if(b.developer) html+=`<div class="dev-card">
+      <div class="dname">Yuki-no-Ringo</div>
+      <div class="drole">努力vibe coding的文科生</div>
+      <p>Aura 由 Yuki-no-Ringo 一个人设计并开发，是一个关于阅读的长期项目。</p>
+    </div>`;
+  }
+  content.insertAdjacentHTML("beforeend",html+"</section>");
+});
+
+/* ============ 开场幕布 ============ */
+(function(){
+  const curtain=document.getElementById("curtain");
+  let seen=false;
+  try{seen=sessionStorage.getItem("aura-guide-seen")==="1";}catch(e){}
+  if(seen){curtain.remove();return;}
+  const lines=[document.getElementById("cl0"),document.getElementById("cl1"),document.getElementById("cl2"),document.getElementById("cl3")];
+  const enter=document.getElementById("curtainEnter");
+  const timers=[
+    setTimeout(()=>lines[0].classList.add("show"),700),
+    setTimeout(()=>{lines[0].classList.add("dim");lines[1].classList.add("show");},2600),
+    setTimeout(()=>{lines[1].classList.add("dim");lines[2].classList.add("show");},4500),
+    setTimeout(()=>{lines[2].classList.add("dim");lines[3].classList.add("show");},6400),
+    setTimeout(()=>enter.classList.add("show"),8000)
+  ];
+  curtain.addEventListener("click",()=>{
+    timers.forEach(clearTimeout);
+    try{sessionStorage.setItem("aura-guide-seen","1");}catch(e){}
+    curtain.classList.add("lift");
+    setTimeout(()=>curtain.remove(),1400);
+  });
+})();
+
+/* ============ 图片放大 ============ */
+const lb=document.getElementById("lightbox"), lbImg=lb.querySelector("img");
+document.querySelectorAll("figure img").forEach(img=>img.addEventListener("click",()=>{lbImg.src=img.src;lb.classList.add("on");}));
+lb.addEventListener("click",()=>lb.classList.remove("on"));
+
+/* ============ 导航：高亮、收起、进度 ============ */
+const links=[...document.querySelectorAll("#navlinks a")];
+const secs=[...document.querySelectorAll("section")];
+const topBtn=document.getElementById("top");
+function show(id){
+  secs.forEach(s=>s.classList.toggle("active",s.id===id));
+  links.forEach(a=>a.classList.toggle("active",a.getAttribute("href")==="#"+id));
+  scrollTo(0,0);
+}
+links.forEach(a=>a.addEventListener("click",e=>{
+  e.preventDefault();
+  const id=a.getAttribute("href").slice(1);
+  show(id);
+  history.replaceState(null,"","#"+id);
+}));
+const first=location.hash.slice(1);
+show(secs.some(s=>s.id===first)?first:secs[0].id);
+addEventListener("scroll",()=>{topBtn.classList.toggle("on",scrollY>600);},{passive:true});
+topBtn.addEventListener("click",()=>scrollTo({top:0,behavior:"smooth"}));
+
+/* ============ 浏览量（不蒜子，部署到线上后生效） ============ */
+(function(){
+  const n=document.getElementById("viewCount");
+  let tries=0;
+  const poll=setInterval(()=>{
+    const v=document.getElementById("busuanzi_value_site_pv");
+    if(v&&v.textContent.trim()){n.textContent=v.textContent.trim();clearInterval(poll);}
+    else if(++tries>40){n.textContent="—";clearInterval(poll);}
+  },500);
+})();
+
+/* ============ 点赞 ============ */
+(function(){
+  const btn=document.getElementById("likeBtn"), cnt=document.getElementById("likeCount"),
+        txt=document.getElementById("likeText"), note=document.getElementById("likeNote");
+  if(!btn)return;
+  let liked=false;
+  try{liked=localStorage.getItem("aura-guide-liked")==="1";}catch(e){}
+  const paint=()=>{btn.classList.toggle("liked",liked);txt.textContent=liked?"已收到你的心意":"鼓励一下";};
+  paint();
+  fetch(LIKE_API).then(r=>r.json()).then(d=>{if(typeof d.count==="number")cnt.textContent=d.count;else cnt.textContent="—";})
+    .catch(()=>{cnt.textContent="—";note.textContent="计数服务暂时连不上，心意照样能送到。";});
+  btn.addEventListener("click",()=>{
+    if(liked){note.textContent="这份心意已经送到过了，谢谢你。";return;}
+    liked=true;paint();
+    try{localStorage.setItem("aura-guide-liked","1");}catch(e){}
+    fetch(LIKE_API+"/up").then(r=>r.json()).then(d=>{
+      if(typeof d.count==="number")cnt.textContent=d.count;
+      note.textContent="谢谢你，已经寄到作者手里了。";
+    }).catch(()=>{note.textContent="网络不太顺，但这份心意作者收下了。";});
+  });
+})();
+</script>
+</body>
+</html>
